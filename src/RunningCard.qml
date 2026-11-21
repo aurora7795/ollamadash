@@ -9,6 +9,9 @@ Rectangle {
 
     required property var modelData
 
+    // Asks the window to show this model's details.
+    signal activated(string name)
+
     readonly property bool onCpuOnly: modelData.sizeVram <= 0
     readonly property string expiry: {
         if (modelData.expiresIn < 0)
@@ -20,8 +23,17 @@ Rectangle {
 
     Layout.fillWidth: true
     implicitHeight: content.implicitHeight + 28
-    color: "#1d1d21"
+    color: area.containsMouse ? "#25252a" : "#1d1d21"
     radius: Math.min(4, theme.radius)
+
+    // Sits behind the content, so the Unload button still gets its own clicks.
+    MouseArea {
+        id: area
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: card.activated(card.modelData.name)
+    }
 
     ColumnLayout {
         id: content

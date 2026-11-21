@@ -10,6 +10,9 @@ Item {
 
     required property var modelData
 
+    // Asks the window to show this model's details.
+    signal activated(string name)
+
     readonly property bool loaded: {
         for (var i = 0; i < backend.running.length; ++i)
             if (backend.running[i].name === modelData.name)
@@ -19,6 +22,18 @@ Item {
 
     width: ListView.view ? ListView.view.width : 0
     height: 44
+
+    Rectangle {
+        anchors.fill: parent
+        color: area.containsMouse ? "#1d1d21" : "transparent"
+    }
+    MouseArea {
+        id: area
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: row.activated(row.modelData.name)
+    }
 
     RowLayout {
         anchors.fill: parent

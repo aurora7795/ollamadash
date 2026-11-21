@@ -4,6 +4,7 @@ A live dashboard for a local or remote [Ollama](https://ollama.com) server, buil
 
 - Models in memory right now, with how much of each sits on the GPU, its context size, and a countdown to unload
 - An Unload button per loaded model
+- Click any model for its details: capabilities, architecture, parameters, layers, max context, size, licence, default parameters and template
 - Every installed model, newest first, with the loaded ones marked
 - CPU and memory graphs for this computer (hidden when watching a remote host)
 

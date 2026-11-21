@@ -22,6 +22,10 @@ class Backend : public QObject {
     Q_PROPERTY(QString version READ version NOTIFY modelsChanged)
     Q_PROPERTY(QVariantList running READ running NOTIFY modelsChanged)
     Q_PROPERTY(QVariantList installed READ installed NOTIFY modelsChanged)
+    // What /api/show says about the model last asked for, for the detail dialog.
+    Q_PROPERTY(QVariantMap detail READ detail NOTIFY detailChanged)
+    Q_PROPERTY(bool detailLoading READ detailLoading NOTIFY detailChanged)
+    Q_PROPERTY(QString detailError READ detailError NOTIFY detailChanged)
     Q_PROPERTY(double cpu READ cpu NOTIFY systemChanged)
     Q_PROPERTY(qlonglong memoryUsed READ memoryUsed NOTIFY systemChanged)
     Q_PROPERTY(qlonglong memoryTotal READ memoryTotal NOTIFY systemChanged)
@@ -50,6 +54,9 @@ public:
     QString version() const { return m_version; }
     QVariantList running() const { return m_running; }
     QVariantList installed() const { return m_installed; }
+    QVariantMap detail() const { return m_detail; }
+    bool detailLoading() const { return m_detailLoading; }
+    QString detailError() const { return m_detailError; }
     double cpu() const { return m_cpu; }
     qlonglong memoryUsed() const { return m_memoryTotal - m_memoryAvailable; }
     qlonglong memoryTotal() const { return m_memoryTotal; }
@@ -61,6 +68,8 @@ public:
     // Saves the host and switches to it. An empty string clears the saved choice
     // and goes back to $OLLAMA_HOST or the default. False if it is not an address.
     Q_INVOKABLE bool setHost(const QString &host);
+    // Fetches /api/show for one model; the result lands in `detail`.
+    Q_INVOKABLE void showModel(const QString &name);
     // Asks Ollama to drop a model from memory right away (keep_alive of 0).
     Q_INVOKABLE void unload(const QString &model);
     Q_INVOKABLE QString formatBytes(qlonglong bytes) const;
@@ -68,6 +77,7 @@ public:
     // Pure parsing, kept static so tests can feed it canned responses.
     static QUrl hostUrl(QString value);
     static QVariantList parseRunning(const QByteArray &json, const QDateTime &now);
+    static QVariantMap parseShow(const QByteArray &json);
     static QVariantList parseInstalled(const QByteArray &json);
     static CpuTimes parseCpuTimes(const QByteArray &procStat);
     static Memory parseMemory(const QByteArray &procMeminfo);
@@ -76,6 +86,7 @@ signals:
     void hostChanged();
     void connectedChanged();
     void modelsChanged();
+    void detailChanged();
     void systemChanged();
 
 private:
@@ -102,6 +113,11 @@ private:
     QString m_error;
     QString m_version;
     QVariantList m_running, m_installed;
+    QVariantMap m_detail;
+    bool m_detailLoading = false;
+    QString m_detailError;
+    // Bumped per request, so a slow answer for an earlier click is dropped.
+    int m_detailRequest = 0;
 
     CpuTimes m_lastCpu;
     double m_cpu = 0;

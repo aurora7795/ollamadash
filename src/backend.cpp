@@ -162,6 +162,46 @@ void Backend::fetchInstalled() {
     });
 }
 
+void Backend::showModel(const QString &name) {
+    const int request = ++m_detailRequest;
+    const int generation = m_generation;
+    m_detail = QVariantMap{{"name", name}};
+    m_detailLoading = true;
+    m_detailError.clear();
+    emit detailChanged();
+
+    QUrl url = m_url;
+    url.setPath("/api/show");
+    QNetworkRequest httpRequest(url);
+    httpRequest.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    httpRequest.setTransferTimeout(5000);
+    const QJsonObject body{{"model", name}};
+    QNetworkReply *reply = m_network.post(httpRequest, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, request, generation, name] {
+        reply->deleteLater();
+        if (request != m_detailRequest || generation != m_generation)
+            return;
+        m_detailLoading = false;
+        if (reply->error() != QNetworkReply::NoError) {
+            m_detailError = reply->errorString();
+            emit detailChanged();
+            return;
+        }
+        QVariantMap detail = parseShow(reply->readAll());
+        detail["name"] = name;
+        // Size and digest live in the tags list, not in /api/show.
+        for (const QVariant &entry : std::as_const(m_installed)) {
+            const QVariantMap model = entry.toMap();
+            if (model.value("name").toString() == name) {
+                detail["size"] = model.value("size");
+                detail["digest"] = model.value("digest");
+            }
+        }
+        m_detail = detail;
+        emit detailChanged();
+    });
+}
+
 void Backend::unload(const QString &model) {
     QUrl url = m_url;
     url.setPath("/api/generate");
@@ -260,6 +300,47 @@ QVariantList Backend::parseRunning(const QByteArray &json, const QDateTime &now)
     return out;
 }
 
+QVariantMap Backend::parseShow(const QByteArray &json) {
+    const QJsonObject root = QJsonDocument::fromJson(json).object();
+    const QJsonObject details = root.value("details").toObject();
+    const QJsonObject info = root.value("model_info").toObject();
+
+    // Architecture-specific keys are prefixed by the architecture ("llama.context_length"),
+    // so match on the suffix rather than guessing the prefix.
+    auto number = [&info](const QString &suffix) {
+        for (auto it = info.begin(); it != info.end(); ++it)
+            if (!it.key().startsWith("general.") && it.key().endsWith(suffix))
+                return it.value().toDouble();
+        return 0.0;
+    };
+
+    // Licence files are long; the first line names the licence.
+    QString license;
+    for (const QString &line : root.value("license").toString().split('\n'))
+        if (!line.trimmed().isEmpty()) {
+            license = line.trimmed();
+            break;
+        }
+
+    return QVariantMap{
+        {"capabilities", root.value("capabilities").toArray().toVariantList()},
+        {"architecture", info.value("general.architecture").toString()},
+        {"parameterCount", info.value("general.parameter_count").toDouble()},
+        {"contextLength", number(".context_length")},
+        {"blockCount", number(".block_count")},
+        {"embeddingLength", number(".embedding_length")},
+        {"format", details.value("format").toString()},
+        {"family", details.value("family").toString()},
+        {"parameterSize", details.value("parameter_size").toString()},
+        {"quantization", details.value("quantization_level").toString()},
+        {"runner", details.value("runner").toString()},
+        {"parameters", root.value("parameters").toString().trimmed()},
+        {"template", root.value("template").toString().trimmed()},
+        {"license", license},
+        {"modified", parseTime(root.value("modified_at").toString())},
+    };
+}
+
 QVariantList Backend::parseInstalled(const QByteArray &json) {
     QVariantList out;
     const QJsonArray models = QJsonDocument::fromJson(json).object().value("models").toArray();
@@ -269,6 +350,7 @@ QVariantList Backend::parseInstalled(const QByteArray &json) {
         out.append(QVariantMap{
             {"name", model.value("name").toString()},
             {"size", model.value("size").toDouble()},
+            {"digest", model.value("digest").toString()},
             {"family", details.value("family").toString()},
             {"parameterSize", details.value("parameter_size").toString()},
             {"quantization", details.value("quantization_level").toString()},

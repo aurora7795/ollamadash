@@ -26,8 +26,14 @@ ApplicationWindow {
         return total
     }
 
-    // Single-key shortcuts would fire while typing an address.
-    readonly property bool typing: hostDialog.visible
+    // Single-key shortcuts would fire while typing an address, and a dialog
+    // should own the keyboard while it is open.
+    readonly property bool typing: hostDialog.visible || modelDialog.visible
+
+    function showModel(name) {
+        backend.showModel(name)
+        modelDialog.open()
+    }
 
     Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
     Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; enabled: win.helpVisible && !win.typing; onActivated: win.helpVisible = false }
@@ -37,6 +43,7 @@ ApplicationWindow {
     Shortcut { sequence: "H"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: hostDialog.open() }
 
     HostDialog { id: hostDialog }
+    ModelDialog { id: modelDialog }
 
     // Right-to-left languages mirror the window; the Translator sets the
     // application's layout direction.
@@ -148,7 +155,7 @@ ApplicationWindow {
                         }
                         Repeater {
                             model: backend.running
-                            RunningCard {}
+                            RunningCard { onActivated: function(name) { win.showModel(name) } }
                         }
                     }
 
@@ -171,7 +178,7 @@ ApplicationWindow {
                             Layout.fillHeight: true
                             clip: true
                             model: backend.installed
-                            delegate: InstalledRow {}
+                            delegate: InstalledRow { onActivated: function(name) { win.showModel(name) } }
                             ScrollBar.vertical: ScrollBar {}
                         }
                     }

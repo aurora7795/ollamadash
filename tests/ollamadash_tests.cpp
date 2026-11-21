@@ -68,6 +68,26 @@ private slots:
         QCOMPARE(models[1].toMap()["name"].toString(), QString("old"));
     }
 
+    void parsesModelDetails()
+    {
+        const QByteArray json = R"({"license":"\n  Apache License\n  Version 2.0","parameters":"top_k  20\ntemperature  1",
+            "template":"{{ .Prompt }}","capabilities":["completion","vision"],
+            "details":{"format":"gguf","family":"qwen3_5","parameter_size":"9.7B","quantization_level":"Q4_K_M","runner":"mlx"},
+            "model_info":{"general.architecture":"qwen3_5","general.parameter_count":9652759424,
+                          "qwen3_5.context_length":262144,"qwen3_5.block_count":32,"qwen3_5.embedding_length":4096},
+            "modified_at":"2026-10-24T10:02:53.197949704+01:00"})";
+        const QVariantMap detail = Backend::parseShow(json);
+        QCOMPARE(detail["license"].toString(), QString("Apache License"));
+        QCOMPARE(detail["capabilities"].toStringList(), QStringList({"completion", "vision"}));
+        QCOMPARE(detail["architecture"].toString(), QString("qwen3_5"));
+        QCOMPARE(detail["contextLength"].toDouble(), 262144.0);
+        QCOMPARE(detail["blockCount"].toDouble(), 32.0);
+        QCOMPARE(detail["embeddingLength"].toDouble(), 4096.0);
+        QCOMPARE(detail["runner"].toString(), QString("mlx"));
+        QVERIFY(detail["modified"].toDateTime().isValid());
+        QVERIFY(Backend::parseShow("garbage")["architecture"].toString().isEmpty());
+    }
+
     void garbageParsesToNothing()
     {
         QVERIFY(Backend::parseRunning("not json", QDateTime::currentDateTime()).isEmpty());
