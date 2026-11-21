@@ -11,9 +11,10 @@ A live dashboard for a local or remote [Ollama](https://ollama.com) server, buil
 
 ```sh
 bin/build
-build/ollamadash                              # talks to 127.0.0.1:11434
-OLLAMA_HOST=my-server:11434 build/ollamadash  # or any other Ollama
+build/ollamadash
 ```
+
+It talks to the host you last chose, else `$OLLAMA_HOST`, else `127.0.0.1:11434`. Press `H` (or click the address in the header) to pick another Ollama server; the choice is saved in `~/.config/ollamadash/ollamadash.conf`.
 
 `bin/install` builds the package with `makepkg -fsi` so it shows up in the launcher. `bin/test` runs the unit tests offscreen.
 
@@ -23,6 +24,7 @@ OLLAMA_HOST=my-server:11434 build/ollamadash  # or any other Ollama
 | --- | --- |
 | Space or R | Refresh now |
 | ? | Show or hide the shortcuts |
+| H | Change the Ollama host |
 | Q | Quit |
 
 ## Notes

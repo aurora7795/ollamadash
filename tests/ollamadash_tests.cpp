@@ -20,6 +20,12 @@ private slots:
         QCOMPARE(Backend::hostUrl("https://ollama.example.com").toString(), QString("https://ollama.example.com"));
     }
 
+    void invalidHostsAreRejected()
+    {
+        QVERIFY(!Backend::hostUrl("bad host").isValid());
+        QVERIFY(Backend::hostUrl("good-host:1234").isValid());
+    }
+
     void parsesRunningModels()
     {
         const QByteArray json = R"({"models":[

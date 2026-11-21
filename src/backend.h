@@ -13,10 +13,12 @@ class Backend : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
     Q_PROPERTY(QString error READ error NOTIFY connectedChanged)
-    Q_PROPERTY(QString host READ host CONSTANT)
+    Q_PROPERTY(QString host READ host NOTIFY hostChanged)
     // The CPU and memory graphs read this machine's /proc, so they only mean
     // something when Ollama runs here too.
-    Q_PROPERTY(bool local READ local CONSTANT)
+    Q_PROPERTY(bool local READ local NOTIFY hostChanged)
+    // False until the current host has answered, or failed to, at least once.
+    Q_PROPERTY(bool checked READ checked NOTIFY connectedChanged)
     Q_PROPERTY(QString version READ version NOTIFY modelsChanged)
     Q_PROPERTY(QVariantList running READ running NOTIFY modelsChanged)
     Q_PROPERTY(QVariantList installed READ installed NOTIFY modelsChanged)
@@ -36,10 +38,12 @@ public:
         qint64 available = 0;
     };
 
-    // An empty host falls back to $OLLAMA_HOST, then to 127.0.0.1:11434.
+    // The host comes from the argument, else the saved setting, else $OLLAMA_HOST,
+    // else 127.0.0.1:11434.
     explicit Backend(const QString &host = {}, QObject *parent = nullptr);
 
     bool connected() const { return m_connected; }
+    bool checked() const { return m_checked; }
     QString error() const { return m_error; }
     QString host() const { return m_host; }
     bool local() const { return m_local; }
@@ -54,6 +58,9 @@ public:
 
     void start();
     Q_INVOKABLE void refresh();
+    // Saves the host and switches to it. An empty string clears the saved choice
+    // and goes back to $OLLAMA_HOST or the default. False if it is not an address.
+    Q_INVOKABLE bool setHost(const QString &host);
     // Asks Ollama to drop a model from memory right away (keep_alive of 0).
     Q_INVOKABLE void unload(const QString &model);
     Q_INVOKABLE QString formatBytes(qlonglong bytes) const;
@@ -66,6 +73,7 @@ public:
     static Memory parseMemory(const QByteArray &procMeminfo);
 
 signals:
+    void hostChanged();
     void connectedChanged();
     void modelsChanged();
     void systemChanged();
@@ -75,6 +83,7 @@ private:
     void sampleSystem();
     void fetchRunning();
     void fetchInstalled();
+    void applyHost(const QUrl &url);
     void setConnected(bool connected, const QString &error);
     QNetworkReply *get(const QString &path);
 
@@ -86,6 +95,9 @@ private:
     int m_tick = 0;
     bool m_runningPending = false;
 
+    // Bumped on every host change so replies from the old host are dropped.
+    int m_generation = 0;
+    bool m_checked = false;
     bool m_connected = false;
     QString m_error;
     QString m_version;

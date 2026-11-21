@@ -7,6 +7,7 @@
 #include <QLocale>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSettings>
 #include <QRegularExpression>
 #include <algorithm>
 
@@ -39,11 +40,17 @@ QDateTime parseTime(QString text) {
 
 } // namespace
 
-Backend::Backend(const QString &host, QObject *parent)
-    : QObject(parent),
-      m_url(hostUrl(host.isEmpty() ? qEnvironmentVariable("OLLAMA_HOST") : host)) {
-    m_host = m_url.host() + (m_url.port() > 0 ? ":" + QString::number(m_url.port()) : QString());
-    m_local = m_url.host() == "127.0.0.1" || m_url.host() == "localhost" || m_url.host() == "::1";
+static QSettings settings() { return QSettings("ollamadash", "ollamadash"); }
+
+Backend::Backend(const QString &host, QObject *parent) : QObject(parent) {
+    QString chosen = host;
+    if (chosen.isEmpty())
+        chosen = settings().value("host").toString();
+    if (chosen.isEmpty())
+        chosen = qEnvironmentVariable("OLLAMA_HOST");
+    QUrl url = hostUrl(chosen);
+    // A hand-edited or stale setting shouldn't leave the app without a server.
+    applyHost(url.isValid() ? url : hostUrl({}));
     m_timer.setInterval(PollMilliseconds);
     connect(&m_timer, &QTimer::timeout, this, &Backend::poll);
 }
@@ -53,6 +60,37 @@ void Backend::start() {
     sampleSystem();
     refresh();
     m_timer.start();
+}
+
+void Backend::applyHost(const QUrl &url) {
+    m_url = url;
+    m_host = url.host() + (url.port() > 0 ? ":" + QString::number(url.port()) : QString());
+    m_local = url.host() == "127.0.0.1" || url.host() == "localhost" || url.host() == "::1";
+    ++m_generation;
+    m_runningPending = false;
+    m_checked = false;
+    m_connected = false;
+    m_error.clear();
+    m_version.clear();
+    m_running.clear();
+    m_installed.clear();
+}
+
+bool Backend::setHost(const QString &host) {
+    const QString chosen = host.trimmed();
+    const QUrl url = hostUrl(chosen.isEmpty() ? qEnvironmentVariable("OLLAMA_HOST") : chosen);
+    if (!url.isValid())
+        return false;
+    if (chosen.isEmpty())
+        settings().remove("host");
+    else
+        settings().setValue("host", chosen);
+    applyHost(url);
+    emit hostChanged();
+    emit connectedChanged();
+    emit modelsChanged();
+    refresh();
+    return true;
 }
 
 void Backend::refresh() {
@@ -79,9 +117,12 @@ void Backend::fetchRunning() {
     if (m_runningPending)
         return;
     m_runningPending = true;
+    const int generation = m_generation;
     QNetworkReply *reply = get("/api/ps");
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation] {
         reply->deleteLater();
+        if (generation != m_generation)
+            return;
         m_runningPending = false;
         if (reply->error() != QNetworkReply::NoError) {
             m_running.clear();
@@ -97,9 +138,12 @@ void Backend::fetchRunning() {
 }
 
 void Backend::fetchInstalled() {
+    const int generation = m_generation;
     QNetworkReply *tags = get("/api/tags");
-    connect(tags, &QNetworkReply::finished, this, [this, tags] {
+    connect(tags, &QNetworkReply::finished, this, [this, tags, generation] {
         tags->deleteLater();
+        if (generation != m_generation)
+            return;
         // A failure here is reported by the /api/ps request, which runs every poll.
         if (tags->error() != QNetworkReply::NoError)
             return;
@@ -107,8 +151,10 @@ void Backend::fetchInstalled() {
         emit modelsChanged();
     });
     QNetworkReply *version = get("/api/version");
-    connect(version, &QNetworkReply::finished, this, [this, version] {
+    connect(version, &QNetworkReply::finished, this, [this, version, generation] {
         version->deleteLater();
+        if (generation != m_generation)
+            return;
         if (version->error() != QNetworkReply::NoError)
             return;
         m_version = QJsonDocument::fromJson(version->readAll()).object().value("version").toString();
@@ -131,8 +177,9 @@ void Backend::unload(const QString &model) {
 }
 
 void Backend::setConnected(bool connected, const QString &error) {
-    if (connected == m_connected && error == m_error)
+    if (m_checked && connected == m_connected && error == m_error)
         return;
+    m_checked = true;
     m_connected = connected;
     m_error = error;
     emit connectedChanged();
@@ -169,7 +216,10 @@ QUrl Backend::hostUrl(QString value) {
     if (!hasScheme)
         value.prepend("http://");
 
-    QUrl url(value);
+    // Strict parsing, so a typo like a stray space is rejected rather than repaired.
+    QUrl url(value, QUrl::StrictMode);
+    if (!url.isValid())
+        return url;
     // A server bound to every interface is still reachable on loopback.
     if (url.host().isEmpty() || url.host() == "0.0.0.0" || url.host() == "::")
         url.setHost("127.0.0.1");

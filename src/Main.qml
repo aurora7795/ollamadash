@@ -26,11 +26,17 @@ ApplicationWindow {
         return total
     }
 
-    Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible = !win.helpVisible }
-    Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; enabled: win.helpVisible; onActivated: win.helpVisible = false }
-    Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; onActivated: Qt.quit() }
-    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; onActivated: backend.refresh() }
-    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; onActivated: backend.refresh() }
+    // Single-key shortcuts would fire while typing an address.
+    readonly property bool typing: hostDialog.visible
+
+    Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
+    Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; enabled: win.helpVisible && !win.typing; onActivated: win.helpVisible = false }
+    Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: Qt.quit() }
+    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.refresh() }
+    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.refresh() }
+    Shortcut { sequence: "H"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: hostDialog.open() }
+
+    HostDialog { id: hostDialog }
 
     // Right-to-left languages mirror the window; the Translator sets the
     // application's layout direction.
@@ -59,16 +65,19 @@ ApplicationWindow {
                     width: 10
                     height: 10
                     radius: 5
-                    color: backend.connected ? "#30d158" : "#ff453a"
+                    color: !backend.checked ? "#8a8a93" : backend.connected ? "#30d158" : "#ff453a"
                 }
                 Label {
-                    text: backend.connected ? qsTr("Connected") : qsTr("Not connected")
+                    text: !backend.checked ? qsTr("Connecting…") : backend.connected ? qsTr("Connected") : qsTr("Not connected")
                     font.pixelSize: 13
                 }
-                Label {
+                Button {
                     text: backend.host
-                    color: "#8a8a93"
                     font.pixelSize: 13
+                    flat: true
+                    // Keeps Space free for the refresh shortcut.
+                    focusPolicy: Qt.NoFocus
+                    onClicked: hostDialog.open()
                 }
                 Label {
                     visible: backend.connected && backend.version.length > 0
@@ -91,7 +100,7 @@ ApplicationWindow {
 
                     // Said plainly in the window, not hidden behind an empty dashboard.
                     Panel {
-                        visible: !backend.connected
+                        visible: backend.checked && !backend.connected
                         Layout.fillWidth: true
                         title: qsTr("Offline")
 
@@ -109,10 +118,16 @@ ApplicationWindow {
                             Layout.fillWidth: true
                         }
                         Label {
-                            text: qsTr("Start the server with “ollama serve” or “systemctl start ollama”. To use another address, set OLLAMA_HOST before launching.")
+                            text: qsTr("Start the server with “ollama serve” or “systemctl start ollama”. To watch a different server, choose its address below.")
                             color: "#8a8a93"
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
+                        }
+                        Button {
+                            text: qsTr("Change host…")
+                            highlighted: true
+                            focusPolicy: Qt.NoFocus
+                            onClicked: hostDialog.open()
                         }
                     }
 
@@ -244,6 +259,8 @@ ApplicationWindow {
                     Label { text: qsTr("Refresh now"); color: "#8a8a93" }
                     Label { text: "?"; font.family: "monospace" }
                     Label { text: qsTr("Show or hide this help"); color: "#8a8a93" }
+                    Label { text: "H"; font.family: "monospace" }
+                    Label { text: qsTr("Change the Ollama host"); color: "#8a8a93" }
                     Label { text: "Q"; font.family: "monospace" }
                     Label { text: qsTr("Quit"); color: "#8a8a93" }
                 }
