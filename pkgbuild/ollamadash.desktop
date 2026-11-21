@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ollama Dash
+Comment=Live dashboard for a local Ollama server
+Exec=ollamadash
+Icon=ollamadash
+Terminal=false
+Categories=Utility;System;Monitor;
+StartupWMClass=ollamadash
