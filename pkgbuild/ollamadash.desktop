@@ -2,6 +2,9 @@
 Type=Application
 Name=Ollama Dash
 Comment=Live dashboard for a local Ollama server
+Comment[es_MX]=Panel en vivo para un servidor Ollama
+Comment[it]=Dashboard in tempo reale per un server Ollama
+Comment[hu]=Élő irányítópult egy Ollama-kiszolgálóhoz
 Exec=ollamadash
 Icon=ollamadash
 Terminal=false

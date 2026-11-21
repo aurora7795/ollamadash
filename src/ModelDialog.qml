@@ -146,15 +146,15 @@ Dialog {
 
                         Label {
                             id: name
-                            width: 140
+                            width: 160
                             text: cell.modelData.label
                             color: "#8a8a93"
                             font.pixelSize: 13
                         }
                         Label {
                             id: value
-                            x: 150
-                            width: parent.width - 150
+                            x: 170
+                            width: parent.width - 170
                             text: String(cell.modelData.value)
                             wrapMode: Text.WordWrap
                             font.pixelSize: 13

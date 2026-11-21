@@ -1,5 +1,9 @@
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QRegularExpression>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -107,6 +111,55 @@ private slots:
         const auto memory = Backend::parseMemory("MemTotal:       16000 kB\nMemFree: 1 kB\nMemAvailable:    4000 kB\n");
         QCOMPARE(memory.total, qint64(16000) * 1024);
         QCOMPARE(memory.available, qint64(4000) * 1024);
+    }
+
+    // Every language must translate the same strings, and a translation must keep
+    // the placeholders of its English key, or .arg() would drop or misplace values.
+    void catalogsAreCompleteAndKeepPlaceholders()
+    {
+        const QDir dir(I18N_DIR);
+        const QStringList files = dir.entryList({"*.json"}, QDir::Files);
+        for (const char *shipped : {"es-MX.json", "it.json", "hu.json"})
+            QVERIFY2(files.contains(shipped), shipped);
+
+        static const QRegularExpression placeholder(R"(%(?:\d|n))");
+        auto placeholders = [](const QString &text) {
+            QStringList found;
+            auto it = placeholder.globalMatch(text);
+            while (it.hasNext())
+                found << it.next().captured();
+            found.sort();
+            return found;
+        };
+
+        QSet<QString> reference;
+        for (const QString &file : files) {
+            // English is the source text; its catalog only carries plural forms.
+            if (file == "en.json")
+                continue;
+            QFile catalog(dir.filePath(file));
+            QVERIFY(catalog.open(QIODevice::ReadOnly));
+            const QJsonObject object = QJsonDocument::fromJson(catalog.readAll()).object();
+            QVERIFY2(!object.isEmpty(), qPrintable(file));
+
+            const QStringList keyList = object.keys();
+            const QSet<QString> keys(keyList.begin(), keyList.end());
+            if (reference.isEmpty())
+                reference = keys;
+            QVERIFY2(keys == reference, qPrintable(file + " has different keys"));
+
+            for (auto it = object.begin(); it != object.end(); ++it) {
+                if (it.value().isString()) {
+                    QVERIFY2(placeholders(it.value().toString()) == placeholders(it.key()),
+                             qPrintable(file + ": " + it.key()));
+                } else {
+                    const QJsonObject forms = it.value().toObject();
+                    QVERIFY2(forms.contains("other"), qPrintable(file + ": " + it.key()));
+                    for (auto form = forms.begin(); form != forms.end(); ++form)
+                        QVERIFY2(form.value().toString().contains("%n"), qPrintable(file + ": " + it.key()));
+                }
+            }
+        }
     }
 
     void themeFallsBack()
