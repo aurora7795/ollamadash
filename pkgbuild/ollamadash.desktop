@@ -8,5 +8,5 @@ Comment[hu]=Élő irányítópult egy Ollama-kiszolgálóhoz
 Exec=ollamadash
 Icon=ollamadash
 Terminal=false
-Categories=Utility;System;Monitor;
+Categories=System;Monitor;
 StartupWMClass=ollamadash

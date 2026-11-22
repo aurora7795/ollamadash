@@ -1,5 +1,7 @@
 # Ollama Dash
 
+![Ollama Dash showing two loaded models, the installed list and CPU and memory graphs](docs/screenshot.png)
+
 A live dashboard for a local or remote [Ollama](https://ollama.com) server, built with Qt Quick for Omarchy. It follows the desktop theme, and speaks English, Spanish (Mexico), Italian and Hungarian, following the language set in Omarchy.
 
 - Models in memory right now, with how much of each sits on the GPU, its context size, and a countdown to unload
