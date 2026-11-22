@@ -6,6 +6,9 @@ mkdir -p "$ROOT/build"
 cd "$ROOT/build"
 
 qmake6 "$ROOT/ollamadash.pro"
+# The version is a compile-time define, and make doesn't track changes to the
+# .pro file, so a version bump would otherwise ship the old number.
+rm -f main.o
 make -j"$(nproc)"
 
 echo "Built $ROOT/build/ollamadash"
