@@ -14,6 +14,12 @@ class Backend : public QObject {
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
     Q_PROPERTY(QString error READ error NOTIFY connectedChanged)
     Q_PROPERTY(QString host READ host NOTIFY hostChanged)
+    // What the header shows: the saved name when the current host has one, else the address.
+    Q_PROPERTY(QString hostLabel READ hostLabel NOTIFY hostChanged)
+    // The saved hosts, as maps of name, address, label and current.
+    Q_PROPERTY(QVariantList hosts READ hosts NOTIFY hostsChanged)
+    // Where the current host sits in `hosts`, or -1 when it is the default or an unsaved address.
+    Q_PROPERTY(int hostIndex READ hostIndex NOTIFY hostChanged)
     // The CPU and memory graphs read this machine's /proc, so they only mean
     // something when Ollama runs here too.
     Q_PROPERTY(bool local READ local NOTIFY hostChanged)
@@ -50,6 +56,9 @@ public:
     bool checked() const { return m_checked; }
     QString error() const { return m_error; }
     QString host() const { return m_host; }
+    QString hostLabel() const;
+    QVariantList hosts() const;
+    int hostIndex() const;
     bool local() const { return m_local; }
     QString version() const { return m_version; }
     QVariantList running() const { return m_running; }
@@ -65,9 +74,15 @@ public:
 
     void start();
     Q_INVOKABLE void refresh();
-    // Saves the host and switches to it. An empty string clears the saved choice
-    // and goes back to $OLLAMA_HOST or the default. False if it is not an address.
-    Q_INVOKABLE bool setHost(const QString &host);
+    // Saves an address under an optional name and switches to it. An address that is
+    // already saved keeps its place and takes the new name. False if it is not an address.
+    Q_INVOKABLE bool addHost(const QString &name, const QString &address);
+    Q_INVOKABLE void selectHost(int index);
+    // Forgets a saved host. Removing the current one moves to the first that is left,
+    // or to the default.
+    Q_INVOKABLE void removeHost(int index);
+    // Clears the saved choice and goes back to $OLLAMA_HOST, or 127.0.0.1:11434.
+    Q_INVOKABLE void useDefaultHost();
     // Fetches /api/show for one model; the result lands in `detail`.
     Q_INVOKABLE void showModel(const QString &name);
     // Asks Ollama to drop a model from memory right away (keep_alive of 0).
@@ -84,6 +99,7 @@ public:
 
 signals:
     void hostChanged();
+    void hostsChanged();
     void connectedChanged();
     void modelsChanged();
     void detailChanged();
@@ -95,6 +111,7 @@ private:
     void fetchRunning();
     void fetchInstalled();
     void applyHost(const QUrl &url);
+    void switchTo(const QUrl &url);
     void setConnected(bool connected, const QString &error);
     QNetworkReply *get(const QString &path);
 

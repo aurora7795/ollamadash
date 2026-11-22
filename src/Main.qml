@@ -28,7 +28,7 @@ ApplicationWindow {
 
     // Single-key shortcuts would fire while typing an address, and a dialog
     // should own the keyboard while it is open.
-    readonly property bool typing: hostDialog.visible || modelDialog.visible
+    readonly property bool typing: hostDialog.visible || modelDialog.visible || hostMenu.visible
 
     function showModel(name) {
         backend.showModel(name)
@@ -40,7 +40,23 @@ ApplicationWindow {
     Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: Qt.quit() }
     Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.refresh() }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.refresh() }
-    Shortcut { sequence: "H"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: hostDialog.open() }
+    Shortcut { sequence: "H"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: hostMenu.open() }
+    // Keys 1 to 9 jump to the nth saved host, unless a dialog owns the keyboard.
+    Repeater {
+        model: 9
+        Item {
+            required property int index
+            Shortcut {
+                sequence: String(index + 1)
+                context: Qt.ApplicationShortcut
+                enabled: !hostDialog.visible && !modelDialog.visible && index < backend.hosts.length
+                onActivated: {
+                    hostMenu.close()
+                    backend.selectHost(index)
+                }
+            }
+        }
+    }
 
     HostDialog { id: hostDialog }
     ModelDialog { id: modelDialog }
@@ -86,12 +102,20 @@ ApplicationWindow {
                     font.pixelSize: 13
                 }
                 Button {
-                    text: backend.host
+                    id: hostButton
+                    text: backend.hostLabel
                     font.pixelSize: 13
                     flat: true
                     // Keeps Space free for the refresh shortcut.
                     focusPolicy: Qt.NoFocus
-                    onClicked: hostDialog.open()
+                    onClicked: hostMenu.open()
+
+                    HostMenu {
+                        id: hostMenu
+                        y: hostButton.height + 4
+                        x: hostButton.width - width
+                        onAddRequested: hostDialog.open()
+                    }
                 }
                 Label {
                     visible: backend.connected && backend.version.length > 0
@@ -141,7 +165,7 @@ ApplicationWindow {
                             text: qsTr("Change host…")
                             highlighted: true
                             focusPolicy: Qt.NoFocus
-                            onClicked: hostDialog.open()
+                            onClicked: hostMenu.open()
                         }
                     }
 
@@ -274,7 +298,9 @@ ApplicationWindow {
                     Label { text: "?"; font.family: "monospace" }
                     Label { text: qsTr("Show or hide this help"); color: "#8a8a93" }
                     Label { text: "H"; font.family: "monospace" }
-                    Label { text: qsTr("Change the Ollama host"); color: "#8a8a93" }
+                    Label { text: qsTr("Switch the Ollama host"); color: "#8a8a93" }
+                    Label { text: "1 – 9"; font.family: "monospace" }
+                    Label { text: qsTr("Jump to a saved host"); color: "#8a8a93" }
                     Label { text: "Q"; font.family: "monospace" }
                     Label { text: qsTr("Quit"); color: "#8a8a93" }
                 }

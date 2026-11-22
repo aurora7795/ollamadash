@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-// Picks which Ollama server to watch. The choice is saved by the backend.
+// Adds an Ollama server to the saved list and switches to it.
 Dialog {
     id: dialog
 
@@ -12,7 +12,7 @@ Dialog {
     modal: true
     anchors.centerIn: Overlay.overlay
     width: 440
-    title: qsTr("Ollama host")
+    title: qsTr("Add Ollama host")
     Material.roundedScale: theme.radius
 
     // Match the app's panels instead of Material's lighter popup surface.
@@ -27,7 +27,7 @@ Dialog {
     exit: Transition {}
 
     function connectNow() {
-        if (backend.setHost(field.text))
+        if (backend.addHost(nameField.text, field.text))
             close()
         else
             invalid = true
@@ -35,23 +35,28 @@ Dialog {
 
     onAboutToShow: {
         invalid = false
-        field.text = backend.host
+        nameField.text = ""
+        field.text = ""
     }
-    onOpened: {
-        field.forceActiveFocus()
-        field.selectAll()
-    }
+    onOpened: field.forceActiveFocus()
 
     contentItem: ColumnLayout {
         spacing: 10
 
-        // The Material field floats this placeholder as its label.
+        // The Material fields float their placeholders as labels.
         TextField {
             id: field
             Layout.fillWidth: true
             placeholderText: qsTr("Address, for example my-server:11434")
             onAccepted: dialog.connectNow()
             onTextEdited: dialog.invalid = false
+        }
+        // Below the address, which is the one thing that is required and has the focus.
+        TextField {
+            id: nameField
+            Layout.fillWidth: true
+            placeholderText: qsTr("Name (optional), for example Mac mini")
+            onAccepted: dialog.connectNow()
         }
         Label {
             visible: dialog.invalid
@@ -60,7 +65,7 @@ Dialog {
             Layout.fillWidth: true
         }
         Label {
-            text: qsTr("Saved for next time. “Use default” goes back to OLLAMA_HOST, or 127.0.0.1:11434 when that isn't set.")
+            text: qsTr("Saved for next time. Press H to switch between saved hosts.")
             color: "#8a8a93"
             font.pixelSize: 12
             wrapMode: Text.WordWrap
@@ -90,16 +95,6 @@ Dialog {
             anchors.bottomMargin: 8
             spacing: 8
 
-            Button {
-                text: qsTr("Use default")
-                flat: true
-                Material.foreground: "#e8e8ea"
-                focusPolicy: Qt.NoFocus
-                onClicked: {
-                    field.text = ""
-                    dialog.connectNow()
-                }
-            }
             Item { Layout.fillWidth: true }
             Button {
                 text: qsTr("Cancel")

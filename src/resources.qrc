@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
         <file alias="HostDialog.qml">HostDialog.qml</file>
+        <file alias="HostMenu.qml">HostMenu.qml</file>
         <file alias="ModelDialog.qml">ModelDialog.qml</file>
         <file alias="Panel.qml">Panel.qml</file>
         <file alias="Sparkline.qml">Sparkline.qml</file>

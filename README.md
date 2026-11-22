@@ -9,6 +9,7 @@ A live dashboard for a local or remote [Ollama](https://ollama.com) server, buil
 - Click any model for its details: capabilities, architecture, parameters, layers, max context, size, licence, default parameters and template
 - Every installed model, newest first, with the loaded ones marked
 - CPU and memory graphs for this computer (hidden when watching a remote host)
+- Save several Ollama servers, name them, and switch between them with one key
 
 ## Run
 
@@ -17,7 +18,7 @@ bin/build
 build/ollamadash
 ```
 
-It talks to the host you last chose, else `$OLLAMA_HOST`, else `127.0.0.1:11434`. Press `H` (or click the address in the header) to pick another Ollama server; the choice is saved in `~/.config/ollamadash/ollamadash.conf`.
+It talks to the host you last chose, else `$OLLAMA_HOST`, else `127.0.0.1:11434`. Press `H` (or click the host in the header) to open the list of saved servers. Pick one, or choose *Add host…* to save another with an optional name, like "Mac mini". Keys `1`–`9` jump straight to the nth saved server, and Delete removes the highlighted one. The list and the last server you used are saved in `~/.config/ollamadash/ollamadash.conf`. *Use default* goes back to `$OLLAMA_HOST`, or `127.0.0.1:11434`.
 
 `bin/install` builds the package with `makepkg -fsi` so it shows up in the launcher. `bin/test` runs the unit tests offscreen.
 
@@ -27,7 +28,8 @@ It talks to the host you last chose, else `$OLLAMA_HOST`, else `127.0.0.1:11434`
 | --- | --- |
 | Space or R | Refresh now |
 | ? | Show or hide the shortcuts |
-| H | Change the Ollama host |
+| H | Open the saved hosts (arrows and Return to pick, Delete to remove) |
+| 1–9 | Jump to a saved host |
 | Q | Quit |
 
 ## Notes

@@ -1,8 +1,10 @@
 #include <QDir>
+#include <memory>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QSet>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -15,6 +17,103 @@ class OllamadashTests : public QObject {
     Q_OBJECT
 
 private slots:
+    // Every host test gets its own empty config directory, so none of them
+    // can read or write the real app's saved hosts.
+    void init()
+    {
+        m_config = std::make_unique<QTemporaryDir>();
+        QVERIFY(m_config->isValid());
+        QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config->path());
+        qunsetenv("OLLAMA_HOST");
+    }
+
+    void addingAHostSavesAndSelectsIt()
+    {
+        Backend backend;
+        QVERIFY(backend.hosts().isEmpty());
+        QVERIFY(backend.addHost("Mac mini", "127.0.0.1:2"));
+        QCOMPARE(backend.hosts().size(), 1);
+        QCOMPARE(backend.hostLabel(), QString("Mac mini"));
+        QCOMPARE(backend.hostIndex(), 0);
+        // A second Backend, as after a restart, comes up on the saved host.
+        Backend again;
+        QCOMPARE(again.host(), QString("127.0.0.1:2"));
+        QCOMPARE(again.hostLabel(), QString("Mac mini"));
+    }
+
+    void anInvalidAddressSavesNothing()
+    {
+        Backend backend;
+        QVERIFY(!backend.addHost("x", "bad host"));
+        QVERIFY(!backend.addHost("x", "  "));
+        QVERIFY(backend.hosts().isEmpty());
+    }
+
+    void theSameServerIsNotAddedTwice()
+    {
+        Backend backend;
+        QVERIFY(backend.addHost("", "gpu-box"));
+        // The default port spelled out is the same server.
+        QVERIFY(backend.addHost("Box", "gpu-box:11434"));
+        QCOMPARE(backend.hosts().size(), 1);
+        QCOMPARE(backend.hostLabel(), QString("Box"));
+        // Re-adding without a name keeps the one it has.
+        QVERIFY(backend.addHost("", "gpu-box"));
+        QCOMPARE(backend.hostLabel(), QString("Box"));
+    }
+
+    void selectingSwitchesBetweenHosts()
+    {
+        Backend backend;
+        backend.addHost("A", "127.0.0.1:2");
+        backend.addHost("B", "127.0.0.1:3");
+        QCOMPARE(backend.hostIndex(), 1);
+        backend.selectHost(0);
+        QCOMPARE(backend.host(), QString("127.0.0.1:2"));
+        QVERIFY(backend.hosts().at(0).toMap().value("current").toBool());
+        backend.selectHost(7); // out of range is ignored
+        QCOMPARE(backend.host(), QString("127.0.0.1:2"));
+    }
+
+    void removingTheCurrentHostMovesOn()
+    {
+        Backend backend;
+        backend.addHost("A", "127.0.0.1:2");
+        backend.addHost("B", "127.0.0.1:3");
+        backend.removeHost(0); // not the current one
+        QCOMPARE(backend.host(), QString("127.0.0.1:3"));
+        QCOMPARE(backend.hosts().size(), 1);
+        backend.removeHost(0); // the current one, and the last
+        QVERIFY(backend.hosts().isEmpty());
+        QCOMPARE(backend.host(), QString("127.0.0.1:11434"));
+    }
+
+    void defaultFallsBackToTheEnvironment()
+    {
+        Backend backend;
+        backend.addHost("A", "127.0.0.1:2");
+        qputenv("OLLAMA_HOST", "env-box:5");
+        backend.useDefaultHost();
+        QCOMPARE(backend.host(), QString("env-box:5"));
+        QCOMPARE(backend.hostIndex(), -1);
+        // The saved list survives, and the default is what the next start uses.
+        QCOMPARE(backend.hosts().size(), 1);
+        Backend again;
+        QCOMPARE(again.host(), QString("env-box:5"));
+    }
+
+    void aSingleHostFromAnOlderVersionBecomesTheFirstEntry()
+    {
+        QSettings("ollamadash", "ollamadash").setValue("host", "100.64.0.9:11434");
+        Backend backend;
+        QCOMPARE(backend.host(), QString("100.64.0.9:11434"));
+        QCOMPARE(backend.hosts().size(), 1);
+        QCOMPARE(backend.hostIndex(), 0);
+        // Starting again doesn't add it a second time.
+        Backend again;
+        QCOMPARE(again.hosts().size(), 1);
+    }
+
     void hostDefaultsToLoopback()
     {
         QCOMPARE(Backend::hostUrl("").toString(), QString("http://127.0.0.1:11434"));
@@ -196,6 +295,8 @@ private slots:
     }
 
 private:
+    std::unique_ptr<QTemporaryDir> m_config;
+
     static void write(const QString &path, const QByteArray &contents)
     {
         QFile file(path);

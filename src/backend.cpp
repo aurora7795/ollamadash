@@ -42,10 +42,59 @@ QDateTime parseTime(QString text) {
 
 static QSettings settings() { return QSettings("ollamadash", "ollamadash"); }
 
+namespace {
+
+struct SavedHost {
+    QString name;
+    QString address;
+};
+
+QList<SavedHost> loadHosts() {
+    QSettings s("ollamadash", "ollamadash");
+    QList<SavedHost> hosts;
+    const int count = s.beginReadArray("hosts");
+    for (int i = 0; i < count; ++i) {
+        s.setArrayIndex(i);
+        hosts.append({s.value("name").toString(), s.value("address").toString()});
+    }
+    s.endArray();
+    return hosts;
+}
+
+void saveHosts(const QList<SavedHost> &hosts) {
+    QSettings s("ollamadash", "ollamadash");
+    s.remove("hosts");
+    s.beginWriteArray("hosts", hosts.size());
+    for (int i = 0; i < hosts.size(); ++i) {
+        s.setArrayIndex(i);
+        s.setValue("name", hosts[i].name);
+        s.setValue("address", hosts[i].address);
+    }
+    s.endArray();
+}
+
+// Two spellings of one server (a bare name and one with the default port) are the same host.
+int indexOfAddress(const QList<SavedHost> &hosts, const QUrl &url) {
+    for (int i = 0; i < hosts.size(); ++i)
+        if (Backend::hostUrl(hosts[i].address) == url)
+            return i;
+    return -1;
+}
+
+} // namespace
+
 Backend::Backend(const QString &host, QObject *parent) : QObject(parent) {
     QString chosen = host;
-    if (chosen.isEmpty())
+    if (chosen.isEmpty()) {
         chosen = settings().value("host").toString();
+        // Before there was a list, the one chosen host was all that was saved; keep it as the first entry.
+        const QUrl saved = hostUrl(chosen);
+        QList<SavedHost> hosts = loadHosts();
+        if (saved.isValid() && !chosen.isEmpty() && indexOfAddress(hosts, saved) < 0) {
+            hosts.append({QString(), chosen});
+            saveHosts(hosts);
+        }
+    }
     if (chosen.isEmpty())
         chosen = qEnvironmentVariable("OLLAMA_HOST");
     QUrl url = hostUrl(chosen);
@@ -76,21 +125,90 @@ void Backend::applyHost(const QUrl &url) {
     m_installed.clear();
 }
 
-bool Backend::setHost(const QString &host) {
-    const QString chosen = host.trimmed();
-    const QUrl url = hostUrl(chosen.isEmpty() ? qEnvironmentVariable("OLLAMA_HOST") : chosen);
-    if (!url.isValid())
-        return false;
-    if (chosen.isEmpty())
-        settings().remove("host");
-    else
-        settings().setValue("host", chosen);
+void Backend::switchTo(const QUrl &url) {
     applyHost(url);
     emit hostChanged();
+    emit hostsChanged();
     emit connectedChanged();
     emit modelsChanged();
     refresh();
+}
+
+QString Backend::hostLabel() const {
+    const QList<SavedHost> saved = loadHosts();
+    const int index = indexOfAddress(saved, m_url);
+    return index >= 0 && !saved[index].name.isEmpty() ? saved[index].name : m_host;
+}
+
+QVariantList Backend::hosts() const {
+    const QList<SavedHost> saved = loadHosts();
+    const int current = indexOfAddress(saved, m_url);
+    QVariantList out;
+    for (int i = 0; i < saved.size(); ++i)
+        out.append(QVariantMap{{"name", saved[i].name},
+                               {"address", saved[i].address},
+                               {"label", saved[i].name.isEmpty() ? saved[i].address : saved[i].name},
+                               {"current", i == current}});
+    return out;
+}
+
+int Backend::hostIndex() const { return indexOfAddress(loadHosts(), m_url); }
+
+bool Backend::addHost(const QString &name, const QString &address) {
+    const QString chosen = address.trimmed();
+    const QUrl url = hostUrl(chosen);
+    if (chosen.isEmpty() || !url.isValid())
+        return false;
+    QList<SavedHost> saved = loadHosts();
+    const int existing = indexOfAddress(saved, url);
+    if (existing >= 0) {
+        if (!name.trimmed().isEmpty())
+            saved[existing].name = name.trimmed();
+    } else {
+        saved.append({name.trimmed(), chosen});
+    }
+    saveHosts(saved);
+    settings().setValue("host", chosen);
+    switchTo(url);
     return true;
+}
+
+void Backend::selectHost(int index) {
+    const QList<SavedHost> saved = loadHosts();
+    if (index < 0 || index >= saved.size())
+        return;
+    const QUrl url = hostUrl(saved[index].address);
+    if (!url.isValid())
+        return;
+    settings().setValue("host", saved[index].address);
+    // Choosing the host already on screen shouldn't blank it and start over.
+    if (url == m_url)
+        return;
+    switchTo(url);
+}
+
+void Backend::removeHost(int index) {
+    QList<SavedHost> saved = loadHosts();
+    if (index < 0 || index >= saved.size())
+        return;
+    const bool wasCurrent = index == indexOfAddress(saved, m_url);
+    saved.removeAt(index);
+    saveHosts(saved);
+    if (!wasCurrent) {
+        emit hostChanged();
+        emit hostsChanged();
+        return;
+    }
+    if (saved.isEmpty())
+        useDefaultHost();
+    else
+        selectHost(0);
+}
+
+void Backend::useDefaultHost() {
+    settings().remove("host");
+    const QUrl url = hostUrl(qEnvironmentVariable("OLLAMA_HOST"));
+    switchTo(url.isValid() ? url : hostUrl({}));
 }
 
 void Backend::refresh() {
