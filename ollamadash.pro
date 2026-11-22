@@ -3,7 +3,7 @@ QT += core gui qml quick quickcontrols2 network
 CONFIG += c++17 release
 TARGET = ollamadash
 # The one place the version lives besides pkgbuild/PKGBUILD; the window shows it.
-VERSION = 0.1.1
+VERSION = 0.1.2
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 TEMPLATE = app
 
