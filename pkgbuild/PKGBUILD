@@ -1,5 +1,5 @@
 pkgname=ollamadash
-pkgver=0.1.3
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Live dashboard for a local Ollama server'
 arch=('x86_64' 'aarch64')
