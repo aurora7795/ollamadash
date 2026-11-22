@@ -8,6 +8,7 @@ A native Qt 6 / Qt Quick dashboard for an Ollama server, built the way Omarchy's
 bin/build      # qmake6 + make into build/ollamadash
 bin/test       # builds and runs the Qt Test binary offscreen (15 tests)
 bin/install    # builds the package and runs makepkg -fsi
+bin/screenshot # regenerates docs/screenshot.png from a fake Ollama (about 2 minutes)
 ```
 
 No CMake. `src/` is flat. `build/`, `pkgbuild/pkg/`, `pkgbuild/src/` and `*.pkg.tar.*` are ignored.
@@ -19,10 +20,11 @@ No CMake. `src/` is flat. `build/`, `pkgbuild/pkg/`, `pkgbuild/src/` and `*.pkg.
 - `src/theme.*`, `src/translator.*`: copied from Omarchy's apps (Omacut and Monologue). Keep them as they are.
 - `src/i18n/*.json`: English text to translation. `en.json` holds only the plural.
 - `tests/ollamadash_tests.cpp`: unit tests. They include `../src/*.cpp` directly and never touch the network.
+- `tests/tools/`: the fake Ollama and the screenshot tool (not tests).
 
 ## Things that will bite you
 
-- **The version lives in two places**: `VERSION` in `ollamadash.pro` and `pkgver` in `pkgbuild/PKGBUILD`. Bump both. `bin/build` deletes `main.o` on purpose, because the version is a compile-time define and `make` does not notice `.pro` changes. Without that, a release ships the old number.
+- **The version lives in two places**: `VERSION` in `ollamadash.pro` and `pkgver` in `pkgbuild/PKGBUILD`. Bump both. `bin/build` deletes `main.o` (and `bin/screenshot` deletes `screenshot.o`) on purpose, because the version is a compile-time define and `make` does not notice `.pro` changes. Without that, a release ships the old number.
 - **The saved host beats `$OLLAMA_HOST`.** Order: argument, saved setting (`~/.config/ollamadash/ollamadash.conf`), `$OLLAMA_HOST`, `127.0.0.1:11434`. When testing against a fake server, set `XDG_CONFIG_HOME` to a temp directory, or you will hit the user's real server and may capture it in a screenshot.
 - **Never touch Omarchy's config**, and never run `omarchy language` to test translations. Point the `Translator` at a temporary language file instead.
 - **Languages: only ones Omarchy supports.** Currently `es-MX`, `it` and `hu`. Omarchy has no plain `es` and no `gl`. `bin/test` checks that every catalog has the same keys and keeps the `%1` placeholders. New user-visible strings need adding to all three catalogs and to the `.desktop` `Comment` lines.
@@ -33,9 +35,15 @@ No CMake. `src/` is flat. `build/`, `pkgbuild/pkg/`, `pkgbuild/src/` and `*.pkg.
 
 ## Looking at the UI
 
-Drive the real QML offscreen: a small harness that loads `qrc:/Main.qml` with `QT_QPA_PLATFORM=offscreen`, sends mouse and key events, and saves `window->grabWindow()`. Set `QT_FORCE_STDERR_LOGGING=1` or QML warnings go to the journal. Use a fake Ollama (`/api/ps`, `/api/tags`, `/api/version`, `/api/show`) on a local port, with made-up models. The sparklines hold 60 samples at 2 s, so wait about two minutes for full graphs.
+`tests/tools/` has what you need to see the real QML without touching the desktop or a real server:
 
-The README screenshot (`docs/screenshot.png`) must use made-up content, the default accent `#FFD60A` (give `Theme` a nonexistent directory) and a loopback host.
+- `fake_ollama.py [port]` is a fake Ollama (`/api/ps`, `/api/tags`, `/api/version`, `POST /api/show`) with made-up models.
+- `screenshot.cpp` loads `qrc:/Main.qml` offscreen (English, default accent `#FFD60A`, whatever this machine uses) and saves `grabWindow()` after a delay.
+- `bin/screenshot [out.png] [delay-ms]` builds the tool, starts the fake server, runs it with an empty `XDG_CONFIG_HOME` and `OLLAMA_HOST` pointing at the fake, and writes `docs/screenshot.png`. The sparklines hold 60 samples at 2 s, so the default delay is 125 s. Use a short delay when you only want to look at a layout.
+
+To test interaction, copy `screenshot.cpp` somewhere outside the repo and add `QTest::mouseClick` / `keyClick` calls on the window (link `testlib`). Set `QT_FORCE_STDERR_LOGGING=1` or QML warnings go to the journal.
+
+The README screenshot must stay made-up and use a loopback host.
 
 ## Releasing
 

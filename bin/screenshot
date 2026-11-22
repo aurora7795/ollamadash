@@ -1,0 +1,29 @@
+#!/bin/sh
+# Regenerates docs/screenshot.png from a fake Ollama with made-up models.
+# Usage: bin/screenshot [out.png] [delay-ms]   (default delay 125000, so the graphs fill)
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+OUT="${1:-$ROOT/docs/screenshot.png}"
+DELAY="${2:-125000}"
+PORT=18080
+VERSION="$(sed -n 's/^VERSION = //p' "$ROOT/ollamadash.pro")"
+
+mkdir -p "$ROOT/build/screenshot" "$(dirname -- "$OUT")"
+cd "$ROOT/build/screenshot"
+qmake6 "$ROOT/tests/tools/screenshot.pro" "VERSION=$VERSION"
+# The version is a define, so the object has to be rebuilt (see AGENTS.md).
+rm -f screenshot.o
+make -j"$(nproc)"
+
+python3 "$ROOT/tests/tools/fake_ollama.py" "$PORT" &
+SERVER=$!
+trap 'kill $SERVER 2>/dev/null || true' EXIT
+sleep 1
+
+# An empty config directory, because the host saved by the real app would
+# otherwise win over OLLAMA_HOST and put a real server in the picture.
+CONFIG="$(mktemp -d)"
+trap 'kill $SERVER 2>/dev/null || true; rm -rf "$CONFIG"' EXIT
+XDG_CONFIG_HOME="$CONFIG" OLLAMA_HOST="127.0.0.1:$PORT" ./screenshot "$OUT" "$DELAY"
+echo "Saved $OUT"
