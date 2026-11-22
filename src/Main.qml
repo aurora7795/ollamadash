@@ -66,6 +66,13 @@ ApplicationWindow {
                     font.pixelSize: 22
                     font.weight: Font.DemiBold
                 }
+                Label {
+                    // Small and muted, aligned to the title's baseline.
+                    text: "v" + Qt.application.version
+                    color: "#8a8a93"
+                    font.pixelSize: 12
+                    Layout.alignment: Qt.AlignBaseline
+                }
                 Item { Layout.fillWidth: true }
                 Rectangle {
                     // A true circle, so it keeps a fixed radius.
