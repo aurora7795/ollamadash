@@ -1,0 +1,9 @@
+Ollama Dash includes code adapted from Omacut and Monologue, which are
+MIT licensed:
+
+  src/theme.{h,cpp} and src/translator.{h,cpp}
+  Copyright (c) David Heinemeier Hansson
+
+Permission to use, copy, modify and distribute that code is granted under the
+terms of the MIT License, reproduced in the LICENSE file, provided this notice
+is kept.

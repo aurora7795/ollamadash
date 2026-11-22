@@ -38,4 +38,4 @@ Ollama doesn't report tokens per second, so there is no throughput graph. GPU me
 
 The app follows Omarchy's language setting (`~/.config/omarchy/language`) and ships only languages Omarchy itself supports. Catalogs live in `src/i18n/` (`es-MX`, `it`, `hu`); a missing string falls back to English. `bin/test` checks that every catalog has the same strings and keeps their placeholders.
 
-MIT licensed. The theme and translator code come from Omacut and Monologue.
+MIT licensed (see [LICENSE](LICENSE)). The theme and translator code come from Omacut and Monologue; see [NOTICE](NOTICE).
