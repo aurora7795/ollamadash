@@ -1,6 +1,6 @@
 # Maintainer: aurora7795 <2437625+aurora7795@users.noreply.github.com>
 pkgname=ollamadash
-pkgver=0.1.3
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Live Qt dashboard for a local or remote Ollama server, themed for Omarchy'
 arch=('x86_64' 'aarch64')
@@ -9,7 +9,7 @@ license=('MIT')
 depends=('qt6-base' 'qt6-declarative' 'qt6-wayland')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('675d50c0ea24ec4e5a36bc7b2d27b7cd57900d73d872c41d9d8eced1ea1c91c3')
+sha256sums=('f0b3eb516e1f82a0fc269500c0cb326f3c716ebfe5ee71b59fb0f3805afbdc19')
 
 build() {
   cd "$pkgname-$pkgver"
@@ -22,4 +22,5 @@ package() {
   install -Dm644 pkgbuild/ollamadash.desktop "$pkgdir/usr/share/applications/ollamadash.desktop"
   install -Dm644 pkgbuild/ollamadash.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/ollamadash.svg"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 }
