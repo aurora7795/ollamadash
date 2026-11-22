@@ -49,7 +49,8 @@ The README screenshot must stay made-up and use a loopback host.
 
 1. Bump the version in both places, run `bin/build` and check `strings -e l build/ollamadash | grep -x '0\.1\.[0-9]'` shows the new number.
 2. Commit, push, then `gh release create vX.Y.Z --target <commit>`. Let GitHub create the tag; a local annotated tag would record the committer's identity.
-3. Installing needs sudo and a terminal, so an agent cannot do it. Tell the user to run `bin/install` (or `makepkg -f` in `pkgbuild/` then `sudo pacman -U` the result).
+3. For the AUR, `pkgbuild/aur/` holds a PKGBUILD that builds from the GitHub release tarball (the one in `pkgbuild/` builds the local tree). After each release: set `pkgver`, run `updpkgsums`, `makepkg --printsrcinfo > .SRCINFO`, test with `makepkg -f` in a temp copy, and add `install -Dm644 NOTICE …` once the tarball contains it (0.1.3 predates it).
+4. Installing needs sudo and a terminal, so an agent cannot do it. Tell the user to run `bin/install` (or `makepkg -f` in `pkgbuild/` then `sudo pacman -U` the result).
 
 ## Git
 
